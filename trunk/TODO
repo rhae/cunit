@@ -15,7 +15,5 @@ Longer term CUnit upgrade ideas:
 5. Provide mechanism to parse a source tree and automatically generate a
    test runner to call all suite set-up functions defined in the tree.
 
-6. Windows interface.
-
-7. Make test framework multi-thread safe.  The current dependence on
+6. Make test framework multi-thread safe.  The current dependence on
    static globals without access control will need to be addressed.
