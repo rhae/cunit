@@ -1,3 +1,7 @@
+* Wed Apr 23 2014 Anil Kumar <anilsaharan@users.sourceforge.net>
+  - Ability to build with a non-source directory build root
+  - Fixed files included in the download source file
+
 * Tue Oct 14 2010 Martin Gerhardy <tlh2000@users.sourceforge.net>
   - release 2.1.1
 
