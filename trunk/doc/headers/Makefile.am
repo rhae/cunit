@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-dochdrdir = $(prefix)/doc/@PACKAGE@/headers
+dochdrdir = $(docdir)/headers
 
 INCLUDE_FILES = \
 	Automated.h \
