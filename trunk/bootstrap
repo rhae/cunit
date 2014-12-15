@@ -1,6 +1,7 @@
 INSTALL_HOME=
 if [ $# -gt 0 ]; then
 	INSTALL_HOME=$1
+	shift
 fi
 
 if [ "$INSTALL_HOME"X == "X" ]; then
