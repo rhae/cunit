@@ -50,6 +50,7 @@ CU_get_test_at_pos
 CU_get_test_by_index
 CU_get_test_by_name
 CU_get_test_complete_handler
+CU_get_test_ignored_handler
 CU_get_test_pos
 CU_get_test_pos_by_name
 CU_get_test_start_handler
@@ -79,6 +80,7 @@ CU_set_suite_start_handler
 CU_set_test_active
 CU_set_test_complete_handler
 CU_set_test_func
+CU_set_test_ignored_handler
 CU_set_test_name
 CU_set_test_start_handler
 CU_translate_special_characters

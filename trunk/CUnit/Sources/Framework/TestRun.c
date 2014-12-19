@@ -117,6 +117,9 @@ static CU_TestStartMessageHandler           f_pTestStartMessageHandler = NULL;
 /** Pointer to the function to be called after running a test. */
 static CU_TestCompleteMessageHandler        f_pTestCompleteMessageHandler = NULL;
 
+/** Pointer to the function to be called when skipping an inactive test. */
+static CU_TestSkippedMessageHandler         f_pTestSkippedMessageHandler = NULL;
+
 /** Pointer to the function to be called after running a suite. */
 static CU_SuiteCompleteMessageHandler       f_pSuiteCompleteMessageHandler = NULL;
 
@@ -195,6 +198,12 @@ void CU_set_test_complete_handler(CU_TestCompleteMessageHandler pTestCompleteHan
 }
 
 /*------------------------------------------------------------------------*/
+void CU_set_test_skipped_handler(CU_TestSkippedMessageHandler pTestSkippedHandler)
+{
+  f_pTestSkippedMessageHandler = pTestSkippedHandler;
+}
+
+/*------------------------------------------------------------------------*/
 void CU_set_suite_complete_handler(CU_SuiteCompleteMessageHandler pSuiteCompleteHandler)
 {
   f_pSuiteCompleteMessageHandler = pSuiteCompleteHandler;
@@ -234,6 +243,12 @@ CU_TestStartMessageHandler CU_get_test_start_handler(void)
 CU_TestCompleteMessageHandler CU_get_test_complete_handler(void)
 {
   return f_pTestCompleteMessageHandler;
+}
+
+/*------------------------------------------------------------------------*/
+CU_TestSkippedMessageHandler CU_get_test_skipped_handler(void)
+{
+  return f_pTestSkippedMessageHandler;
 }
 
 /*------------------------------------------------------------------------*/
@@ -883,6 +898,9 @@ static CU_ErrorCode run_single_suite(CU_pSuite pSuite, CU_pRunSummary pRunSummar
                         0, _("Test inactive"), _("CUnit System"), pSuite, pTest);
             result = CUE_TEST_INACTIVE;
           }
+          if (NULL != f_pTestSkippedMessageHandler) {
+            (*f_pTestSkippedMessageHandler)(pTest, pSuite);
+          }
         }
         pTest = pTest->pNext;
 
@@ -915,6 +933,12 @@ static CU_ErrorCode run_single_suite(CU_pSuite pSuite, CU_pRunSummary pRunSummar
       add_failure(&f_failure_list, &f_run_summary, CUF_SuiteInactive,
                   0, _("Suite inactive"), _("CUnit System"), pSuite, NULL);
       result = CUE_SUITE_INACTIVE;
+    }
+    /* Call the notification function for the tests if there is one */
+    if (NULL != f_pTestSkippedMessageHandler) {
+      for (pTest = pSuite->pTest; pTest != NULL; pTest = pTest->pNext) {
+        (*f_pTestSkippedMessageHandler)(pTest, pSuite);
+      }
     }
   }
 
@@ -1041,6 +1065,7 @@ typedef enum TET {
   SUITE_START = 1,
   TEST_START,
   TEST_COMPLETE,
+  TEST_SKIPPED,
   SUITE_COMPLETE,
   ALL_TESTS_COMPLETE,
   SUITE_INIT_FAILED,
@@ -1131,6 +1156,14 @@ static void test_complete_handler(const CU_pTest pTest, const CU_pSuite pSuite,
   TEST(pTest == CU_get_current_test());
 
   add_test_event(TEST_COMPLETE, pSuite, pTest, pFailure);
+}
+
+static void test_skipped_handler(const CU_pTest pTest, const CU_pSuite pSuite)
+{
+  TEST(pSuite == CU_get_current_suite());
+  TEST(NULL == CU_get_current_test());
+
+  add_test_event(TEST_SKIPPED, pSuite, pTest, NULL);
 }
 
 static void suite_complete_handler(const CU_pSuite pSuite,
@@ -1378,6 +1411,7 @@ static void suite_teardown(void) { SetUp_Passed = CU_FALSE; }
  *      CU_set_suite_start_handler()
  *      CU_set_test_start_handler()
  *      CU_set_test_complete_handler()
+ *      CU_set_test_skipped_handler()
  *      CU_set_suite_complete_handler()
  *      CU_set_all_test_complete_handler()
  *      CU_set_suite_init_failure_handler()
@@ -1385,6 +1419,7 @@ static void suite_teardown(void) { SetUp_Passed = CU_FALSE; }
  *      CU_get_suite_start_handler()
  *      CU_get_test_start_handler()
  *      CU_get_test_complete_handler()
+ *      CU_get_test_skipped_handler()
  *      CU_get_suite_complete_handler()
  *      CU_get_all_test_complete_handler()
  *      CU_get_suite_init_failure_handler()
@@ -1399,11 +1434,14 @@ static void test_message_handlers(void)
   CU_pSuite pSuite1 = NULL;
   CU_pSuite pSuite2 = NULL;
   CU_pSuite pSuite3 = NULL;
+  CU_pSuite pSuite4 = NULL;
   CU_pTest  pTest1 = NULL;
   CU_pTest  pTest2 = NULL;
   CU_pTest  pTest3 = NULL;
   CU_pTest  pTest4 = NULL;
   CU_pTest  pTest5 = NULL;
+  CU_pTest  pTest6 = NULL;
+  CU_pTest  pTest7 = NULL;
   pTestEvent pEvent = NULL;
 
   TEST(!CU_is_test_running());
@@ -1412,6 +1450,7 @@ static void test_message_handlers(void)
   TEST(NULL == CU_get_suite_start_handler());
   TEST(NULL == CU_get_test_start_handler());
   TEST(NULL == CU_get_test_complete_handler());
+  TEST(NULL == CU_get_test_skipped_handler());
   TEST(NULL == CU_get_suite_complete_handler());
   TEST(NULL == CU_get_all_test_complete_handler());
   TEST(NULL == CU_get_suite_init_failure_handler());
@@ -1427,6 +1466,11 @@ static void test_message_handlers(void)
   pTest4 = CU_add_test(pSuite2, "test4", test_succeed);
   pSuite3 = CU_add_suite("suite3", suite_succeed, suite_fail);
   pTest5 = CU_add_test(pSuite3, "test5", test_fail);
+  pTest6 = CU_add_test(pSuite3, "test6", test_fail);
+  CU_set_test_active(pTest6, CU_FALSE);
+  pSuite4 = CU_add_suite("suite4", NULL, NULL);
+  CU_set_suite_active(pSuite4, CU_FALSE);
+  pTest7 = CU_add_test(pSuite4, "test7", test_fail);
 
   TEST_FATAL(CUE_SUCCESS == CU_get_error());
 
@@ -1436,12 +1480,13 @@ static void test_message_handlers(void)
 
   TEST(0 == f_nTestEvents);
   TEST(NULL == f_pFirstEvent);
-  test_results(2,2,0,4,2,0,4,2,2,4);
+  test_results(2,2,1,4,2,1,4,2,2,6);
 
   /* set handlers to local functions */
   CU_set_suite_start_handler(&suite_start_handler);
   CU_set_test_start_handler(&test_start_handler);
   CU_set_test_complete_handler(&test_complete_handler);
+  CU_set_test_skipped_handler(&test_skipped_handler);
   CU_set_suite_complete_handler(&suite_complete_handler);
   CU_set_all_test_complete_handler(&test_all_complete_handler);
   CU_set_suite_init_failure_handler(&suite_init_failure_handler);
@@ -1451,6 +1496,7 @@ static void test_message_handlers(void)
   TEST(suite_start_handler == CU_get_suite_start_handler());
   TEST(test_start_handler == CU_get_test_start_handler());
   TEST(test_complete_handler == CU_get_test_complete_handler());
+  TEST(test_skipped_handler == CU_get_test_skipped_handler());
   TEST(suite_complete_handler == CU_get_suite_complete_handler());
   TEST(test_all_complete_handler == CU_get_all_test_complete_handler());
   TEST(suite_init_failure_handler == CU_get_suite_init_failure_handler());
@@ -1460,8 +1506,8 @@ static void test_message_handlers(void)
   clear_test_events();
   CU_run_all_tests();
 
-  TEST(17 == f_nTestEvents);
-  if (17 == f_nTestEvents) {
+  TEST(21 == f_nTestEvents);
+  if (21 == f_nTestEvents) {
     pEvent = f_pFirstEvent;
     TEST(SUITE_START == pEvent->type);
     TEST(pSuite1 == pEvent->pSuite);
@@ -1547,6 +1593,12 @@ static void test_message_handlers(void)
     TEST(NULL != pEvent->pFailure);
 
     pEvent = pEvent->pNext;
+    TEST(TEST_SKIPPED == pEvent->type);
+    TEST(pSuite3 == pEvent->pSuite);
+    TEST(pTest6 == pEvent->pTest);
+    TEST(NULL == pEvent->pFailure);
+
+    pEvent = pEvent->pNext;
     TEST(SUITE_CLEANUP_FAILED == pEvent->type);
     TEST(pSuite3 == pEvent->pSuite);
     TEST(NULL == pEvent->pTest);
@@ -1559,25 +1611,48 @@ static void test_message_handlers(void)
     TEST(NULL != pEvent->pFailure);
 
     pEvent = pEvent->pNext;
+    TEST(SUITE_START == pEvent->type);
+    TEST(pSuite4 == pEvent->pSuite);
+    TEST(NULL == pEvent->pTest);
+    TEST(NULL == pEvent->pFailure);
+
+    pEvent = pEvent->pNext;
+    TEST(TEST_SKIPPED == pEvent->type);
+    TEST(pSuite4 == pEvent->pSuite);
+    TEST(pTest7 == pEvent->pTest);
+    TEST(NULL == pEvent->pFailure);
+
+    pEvent = pEvent->pNext;
+    TEST(SUITE_COMPLETE == pEvent->type);
+    TEST(pSuite4 == pEvent->pSuite);
+    TEST(NULL == pEvent->pTest);
+    TEST(NULL != pEvent->pFailure);
+
+    pEvent = pEvent->pNext;
     TEST(ALL_TESTS_COMPLETE == pEvent->type);
     TEST(NULL == pEvent->pSuite);
     TEST(NULL == pEvent->pTest);
     TEST(NULL != pEvent->pFailure);
-    if (4 == CU_get_number_of_failure_records()) {
+    if (6 == CU_get_number_of_failure_records()) {
       TEST(NULL != pEvent->pFailure->pNext);
       TEST(NULL != pEvent->pFailure->pNext->pNext);
       TEST(NULL != pEvent->pFailure->pNext->pNext->pNext);
-      TEST(NULL == pEvent->pFailure->pNext->pNext->pNext->pNext);
+      TEST(NULL != pEvent->pFailure->pNext->pNext->pNext->pNext);
+      TEST(NULL != pEvent->pFailure->pNext->pNext->pNext->pNext->pNext);
+      TEST(NULL == pEvent->pFailure->pNext->pNext->pNext->pNext->pNext->pNext);
+    } else {
+      FAIL("Could not check failure records list (wrong number of records).");
     }
     TEST(pEvent->pFailure == CU_get_failure_list());
   }
 
-  test_results(2,2,0,4,2,0,4,2,2,4);
+  test_results(2,2,1,4,2,1,4,2,2,6);
 
   /* clear handlers and run again */
   CU_set_suite_start_handler(NULL);
   CU_set_test_start_handler(NULL);
   CU_set_test_complete_handler(NULL);
+  CU_set_test_skipped_handler(NULL);
   CU_set_suite_complete_handler(NULL);
   CU_set_all_test_complete_handler(NULL);
   CU_set_suite_init_failure_handler(NULL);
@@ -1586,6 +1661,7 @@ static void test_message_handlers(void)
   TEST(NULL == CU_get_suite_start_handler());
   TEST(NULL == CU_get_test_start_handler());
   TEST(NULL == CU_get_test_complete_handler());
+  TEST(NULL == CU_get_test_skipped_handler());
   TEST(NULL == CU_get_suite_complete_handler());
   TEST(NULL == CU_get_all_test_complete_handler());
   TEST(NULL == CU_get_suite_init_failure_handler());
@@ -1596,7 +1672,7 @@ static void test_message_handlers(void)
 
   TEST(0 == f_nTestEvents);
   TEST(NULL == f_pFirstEvent);
-  test_results(2,2,0,4,2,0,4,2,2,4);
+  test_results(2,2,1,4,2,1,4,2,2,6);
 
   CU_cleanup_registry();
   clear_test_events();

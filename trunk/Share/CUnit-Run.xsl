@@ -82,6 +82,16 @@
 		</tr>
 	</xsl:template>
 
+	<xsl:template match="CUNIT_RUN_TEST_SKIPPED">
+		<tr bgcolor="#f0f0d0">
+			<td> </td>
+			<td colspan="2">
+				Skipping test <xsl:apply-templates/>...
+			</td>
+			<td bgcolor="#ffee50"> Skipped </td>
+		</tr>
+	</xsl:template>
+
 	<xsl:template match="CUNIT_RUN_TEST_FAILURE">
 		<tr bgcolor="#e0f0d0">
 			<td> </td>

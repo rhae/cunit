@@ -143,6 +143,14 @@ typedef void (*CU_TestCompleteMessageHandler)(const CU_pTest pTest, const CU_pSu
  *  is considered in progress when the message handler is called.
  */
 
+typedef void (*CU_TestSkippedMessageHandler)(const CU_pTest pTest, const CU_pSuite pSuite);
+/**< Message handler called when a test is skipped.
+ *  The parameters are the test and suite being skipped.  The message
+ *  handler will be called when the test is marked as inactive inside
+ *  an active suite or when the whole suite is marked as inactive.
+ *  Neither pTest nor pSuite may be null.
+ */
+
 typedef void (*CU_SuiteCompleteMessageHandler)(const CU_pSuite pSuite,
                                                const CU_pFailureRecord pFailure);
 /**< Message handler called at the completion of a suite.
@@ -178,6 +186,8 @@ CU_EXPORT void CU_set_test_start_handler(CU_TestStartMessageHandler pTestStartMe
 /**< Sets the message handler to call before each test is run. */
 CU_EXPORT void CU_set_test_complete_handler(CU_TestCompleteMessageHandler pTestCompleteMessage);
 /**< Sets the message handler to call after each test is run. */
+CU_EXPORT void CU_set_test_skipped_handler(CU_TestSkippedMessageHandler pTestSkippedMessage);
+/**< Sets the message handler to call when a test is skipped. */
 CU_EXPORT void CU_set_suite_complete_handler(CU_SuiteCompleteMessageHandler pSuiteCompleteMessage);
 /**< Sets the message handler to call after each suite is run. */
 CU_EXPORT void CU_set_all_test_complete_handler(CU_AllTestsCompleteMessageHandler pAllTestsCompleteMessage);
@@ -193,6 +203,8 @@ CU_EXPORT CU_TestStartMessageHandler           CU_get_test_start_handler(void);
 /**< Retrieves the message handler called before each test is run. */
 CU_EXPORT CU_TestCompleteMessageHandler        CU_get_test_complete_handler(void);
 /**< Retrieves the message handler called after each test is run. */
+CU_EXPORT CU_TestSkippedMessageHandler         CU_get_test_skipped_handler(void);
+/**< Retrieves the message handler called when a test is skipped. */
 CU_EXPORT CU_SuiteCompleteMessageHandler       CU_get_suite_complete_handler(void);
 /**< Retrieves the message handler called after each suite is run. */
 CU_EXPORT CU_AllTestsCompleteMessageHandler    CU_get_all_test_complete_handler(void);

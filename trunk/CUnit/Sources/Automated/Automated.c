@@ -92,6 +92,7 @@ static void automated_run_all_tests(CU_pTestRegistry pRegistry);
 
 static void automated_test_start_message_handler(const CU_pTest pTest, const CU_pSuite pSuite);
 static void automated_test_complete_message_handler(const CU_pTest pTest, const CU_pSuite pSuite, const CU_pFailureRecord pFailure);
+static void automated_test_skipped_message_handler(const CU_pTest pTest, const CU_pSuite pSuite);
 static void automated_all_tests_complete_message_handler(const CU_pFailureRecord pFailure);
 static void automated_suite_init_failure_message_handler(const CU_pSuite pSuite);
 static void automated_suite_cleanup_failure_message_handler(const CU_pSuite pSuite);
@@ -119,6 +120,7 @@ void CU_automated_run_tests(void)
     /* set up the message handlers for writing xml output */
     CU_set_test_start_handler(automated_test_start_message_handler);
     CU_set_test_complete_handler(automated_test_complete_message_handler);
+    CU_set_test_skipped_handler(automated_test_skipped_message_handler);
     CU_set_all_test_complete_handler(automated_all_tests_complete_message_handler);
     CU_set_suite_init_failure_handler(automated_suite_init_failure_message_handler);
     CU_set_suite_cleanup_failure_handler(automated_suite_cleanup_failure_message_handler);
@@ -422,6 +424,39 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
 
   if (NULL != szTemp) {
     CU_FREE(szTemp);
+  }
+}
+
+/** Handler function called when a test is being skipped.
+ * @param pTest   The test being skipped (non-NULL).
+ * @param pSuite  The suite containing the test (non-NULL).
+ */
+static void automated_test_skipped_message_handler(const CU_pTest pTest,
+                                                   const CU_pSuite pSuite)
+{
+  const char *pPackageName = CU_automated_package_name_get();
+
+  CU_UNREFERENCED_PARAMETER(pSuite);  /* pSuite is not used except in assertion */
+
+  assert(NULL != pTest);
+  assert(NULL != pTest->pName);
+  assert(NULL != pSuite);
+  assert(NULL != pSuite->pName);
+  assert(NULL != f_pTestResultFile);
+
+  if (bJUnitXmlOutput == CU_TRUE) {
+    fprintf(f_pTestResultFile,  "        <testcase classname=\"%s.%s\" name=\"%s\" time=\"0\"><skipped/></testcase>\n",
+            pPackageName,
+            pSuite->pName,
+            (NULL != pTest->pName) ? pTest->pName : "");
+  } else {
+    fprintf(f_pTestResultFile,
+            "        <CUNIT_RUN_TEST_RECORD> \n"
+            "          <CUNIT_RUN_TEST_SKIPPED> \n"
+            "            <TEST_NAME> %s </TEST_NAME> \n"
+            "          </CUNIT_RUN_TEST_SKIPPED> \n"
+            "        </CUNIT_RUN_TEST_RECORD> \n",
+            pTest->pName);
   }
 }
 
