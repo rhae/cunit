@@ -97,6 +97,8 @@ static void automated_all_tests_complete_message_handler(const CU_pFailureRecord
 static void automated_suite_init_failure_message_handler(const CU_pSuite pSuite);
 static void automated_suite_cleanup_failure_message_handler(const CU_pSuite pSuite);
 
+static char * automated_xml_safe_str( const char * );
+
 /*=================================================================
  *  Public Interface functions
  *=================================================================*/
@@ -252,9 +254,6 @@ static CU_ErrorCode initialize_result_file(const char* szFilename)
  */
 static void automated_test_start_message_handler(const CU_pTest pTest, const CU_pSuite pSuite)
 {
-	char *szTempName = NULL;
-	size_t szTempName_len = 0;
-
   CU_UNREFERENCED_PARAMETER(pTest);   /* not currently used */
 
   assert(NULL != pTest);
@@ -276,31 +275,23 @@ static void automated_test_start_message_handler(const CU_pTest pTest, const CU_
       }
     }
 
-  /* translate suite name that may contain XML control characters */
-  szTempName = (char *)CU_MALLOC((szTempName_len = CU_translated_strlen(pSuite->pName) + 1));
-  CU_translate_special_characters(pSuite->pName, szTempName, szTempName_len);
-
     if (bJUnitXmlOutput == CU_TRUE) {
       fprintf(f_pTestResultFile,
               "  <testsuite errors=\"%d\" failures=\"%d\" tests=\"%d\" name=\"%s\"> \n",
               0 , /* Errors */
               pSuite->uiNumberOfTestsFailed, /* Failures */
               pSuite->uiNumberOfTests, /* Tests */
-              (NULL != szTempName) ? szTempName : ""); /* Name */
+              automated_xml_safe_str( pSuite->pName ) ); /* Name */
     } else {
       fprintf(f_pTestResultFile,
               "    <CUNIT_RUN_SUITE> \n"
               "      <CUNIT_RUN_SUITE_SUCCESS> \n"
               "        <SUITE_NAME> %s </SUITE_NAME> \n",
-              (NULL != szTempName ? szTempName : ""));
+              automated_xml_safe_str( pSuite->pName ) );
     }
 
     f_bWriting_CUNIT_RUN_SUITE = CU_TRUE;
     f_pRunningSuite = pSuite;
-  }
-
-  if (NULL != szTempName) {
-    CU_FREE(szTempName);
   }
 }
 
@@ -314,9 +305,6 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
                                                     const CU_pSuite pSuite,
                                                     const CU_pFailureRecord pFailure)
 {
-  char *szTemp = NULL;
-  size_t szTemp_len = 0;
-  size_t cur_len = 0;
   CU_pFailureRecord pTempFailure = pFailure;
   const char *pPackageName = CU_automated_package_name_get();
 
@@ -328,6 +316,7 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
   assert(NULL != pSuite->pName);
   assert(NULL != f_pTestResultFile);
 
+ 
   if (NULL != pTempFailure) {
 
     if(NULL != pTempFailure) {
@@ -335,18 +324,13 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
         assert((NULL != pTempFailure->pSuite) && (pTempFailure->pSuite == pSuite));
         assert((NULL != pTempFailure->pTest) && (pTempFailure->pTest == pTest));
 
-        if (NULL != pTempFailure->strCondition) {
-          CU_translate_special_characters(pTempFailure->strCondition, szTemp, sizeof(szTemp));
-        }
-        else {
-          szTemp[0] = '\0';
-        }
 
         fprintf(f_pTestResultFile, "        <testcase classname=\"%s.%s\" name=\"%s\" time=\"0\">\n",
                 pPackageName,
                 pSuite->pName,
                 (NULL != pTest->pName) ? pTest->pName : "");
-        fprintf(f_pTestResultFile, "            <failure message=\"%s\" type=\"Failure\">\n", szTemp);
+        fprintf(f_pTestResultFile, "            <failure message=\"%s\" type=\"Failure\">\n",
+                pTest->pName );
       } /* if */
     }
 
@@ -355,32 +339,9 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
       assert((NULL != pTempFailure->pSuite) && (pTempFailure->pSuite == pSuite));
       assert((NULL != pTempFailure->pTest) && (pTempFailure->pTest == pTest));
 
-      /* expand temporary char buffer if need more room */
-      if (NULL != pTempFailure->strCondition) {
-        cur_len = CU_translated_strlen(pTempFailure->strCondition) + 1;
-      }
-      else {
-        cur_len = 1;
-      }
-      if (cur_len > szTemp_len) {
-        szTemp_len = cur_len;
-        if (NULL != szTemp) {
-          CU_FREE(szTemp);
-        }
-        szTemp = (char *)CU_MALLOC(szTemp_len);
-      }
-
-      /* convert xml entities in strCondition (if present) */
-      if (NULL != pTempFailure->strCondition) {
-        CU_translate_special_characters(pTempFailure->strCondition, szTemp, szTemp_len);
-      }
-      else {
-        szTemp[0] = '\0';
-      }
-
       if (bJUnitXmlOutput == CU_TRUE) {
-        fprintf(f_pTestResultFile, "                     Condition: %s\n", szTemp);
-        fprintf(f_pTestResultFile, "                     File     : %s\n", (NULL != pTempFailure->strFileName) ? pTempFailure->strFileName : "");
+        fprintf(f_pTestResultFile, "                     Condition: %s\n", automated_xml_safe_str(pTempFailure->strCondition));
+        fprintf(f_pTestResultFile, "                     File     : %s\n", automated_xml_safe_str(pTempFailure->strFileName));
         fprintf(f_pTestResultFile, "                     Line     : %d\n", pTempFailure->uiLineNumber);
       } else {
         fprintf(f_pTestResultFile,
@@ -392,10 +353,10 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
               "            <CONDITION> %s </CONDITION> \n"
               "          </CUNIT_RUN_TEST_FAILURE> \n"
               "        </CUNIT_RUN_TEST_RECORD> \n",
-              pTest->pName,
-              (NULL != pTempFailure->strFileName) ? pTempFailure->strFileName : "",
+              automated_xml_safe_str(pTest->pName),
+              automated_xml_safe_str(pTempFailure->strFileName),
               pTempFailure->uiLineNumber,
-              szTemp);
+              automated_xml_safe_str(pTempFailure->strCondition));
       } /* if */
       pTempFailure = pTempFailure->pNext;
     } /* while */
@@ -418,12 +379,8 @@ static void automated_test_complete_message_handler(const CU_pTest pTest,
               "            <TEST_NAME> %s </TEST_NAME> \n"
               "          </CUNIT_RUN_TEST_SUCCESS> \n"
               "        </CUNIT_RUN_TEST_RECORD> \n",
-              pTest->pName);
+              automated_xml_safe_str(pTest->pName) );
     }
-  }
-
-  if (NULL != szTemp) {
-    CU_FREE(szTemp);
   }
 }
 
@@ -443,6 +400,7 @@ static void automated_test_skipped_message_handler(const CU_pTest pTest,
   assert(NULL != pSuite);
   assert(NULL != pSuite->pName);
   assert(NULL != f_pTestResultFile);
+  
 
   if (bJUnitXmlOutput == CU_TRUE) {
     fprintf(f_pTestResultFile,  "        <testcase classname=\"%s.%s\" name=\"%s\" time=\"0\"><skipped/></testcase>\n",
@@ -456,7 +414,7 @@ static void automated_test_skipped_message_handler(const CU_pTest pTest,
             "            <TEST_NAME> %s </TEST_NAME> \n"
             "          </CUNIT_RUN_TEST_SKIPPED> \n"
             "        </CUNIT_RUN_TEST_RECORD> \n",
-            pTest->pName);
+            automated_xml_safe_str(pTest->pName) );
   }
 }
 
@@ -569,7 +527,7 @@ static void automated_suite_init_failure_message_handler(const CU_pSuite pSuite)
             "        <FAILURE_REASON> %s </FAILURE_REASON> \n"
             "      </CUNIT_RUN_SUITE_FAILURE> \n"
             "    </CUNIT_RUN_SUITE>  \n",
-            pSuite->pName,
+            automated_xml_safe_str(pSuite->pName),
             _("Suite Initialization Failed"));
   }
 }
@@ -618,7 +576,7 @@ static void automated_suite_cleanup_failure_message_handler(const CU_pSuite pSui
             "        <FAILURE_REASON> %s </FAILURE_REASON> \n"
             "      </CUNIT_RUN_SUITE_FAILURE> \n"
             "    </CUNIT_RUN_SUITE>  \n",
-            pSuite->pName,
+            automated_xml_safe_str(pSuite->pName),
             _("Suite Cleanup Failed"));
   }
 }
@@ -717,7 +675,7 @@ static CU_ErrorCode automated_list_all_tests(CU_pTestRegistry pRegistry, const c
             "  <CUNIT_ALL_TEST_LISTING> \n");
 
     pSuite = pRegistry->pSuite;
-    while (NULL != pSuite) {
+    while (NULL != pSuite) {     
       assert(NULL != pSuite->pName);
       pTest = pSuite->pTest;
 
@@ -730,7 +688,7 @@ static CU_ErrorCode automated_list_all_tests(CU_pTestRegistry pRegistry, const c
               "        <ACTIVE_VALUE> %s </ACTIVE_VALUE> \n"
               "        <TEST_COUNT_VALUE> %u </TEST_COUNT_VALUE> \n"
               "      </CUNIT_ALL_TEST_LISTING_SUITE_DEFINITION> \n",
-               pSuite->pName,
+              automated_xml_safe_str(pSuite->pName),
               (NULL != pSuite->pInitializeFunc) ? _("Yes") : _("No"),
               (NULL != pSuite->pCleanupFunc) ? _("Yes") : _("No"),
               (CU_FALSE != pSuite->fActive) ? _("Yes") : _("No"),
@@ -738,14 +696,15 @@ static CU_ErrorCode automated_list_all_tests(CU_pTestRegistry pRegistry, const c
 
       fprintf(pTestListFile,
               "      <CUNIT_ALL_TEST_LISTING_SUITE_TESTS> \n");
+      
       while (NULL != pTest) {
-        assert(NULL != pTest->pName);
+               
         fprintf(pTestListFile,
                 "        <TEST_CASE_DEFINITION> \n"
                 "          <TEST_CASE_NAME> %s </TEST_CASE_NAME> \n"
                 "          <TEST_ACTIVE_VALUE> %s </TEST_ACTIVE_VALUE> \n"
                 "        </TEST_CASE_DEFINITION> \n",
-                pTest->pName,
+                automated_xml_safe_str(pTest->pName),
                 (CU_FALSE != pSuite->fActive) ? _("Yes") : _("No"));
         pTest = pTest->pNext;
       }
@@ -807,4 +766,39 @@ const char *CU_automated_package_name_get()
 {
  return _gPackageName;
 }
+
+/*------------------------------------------------------------------------*/
+/** Format pstr into an xml safe string.
+ * 
+ * Uses an internal static string for formatting pstr into an xml safe
+ * string. The internal string is 4096 bytes big, including the \0 character.
+ * If the internal static string is not large enough only the first 4095
+ * characters are used.
+ * If pstr is a NULL pointer then the fixed string "(null)" is returned.
+ * 
+ * This function must be used if the string is used as PCDATA in an xml entity.
+ * When the string is used as an attribute then it is not necessary to use it.
+ * 
+ * @param pstr    String
+ * @param len     Length of the string
+ * 
+ * @return pointer to an xml safe string
+ */
+static char * automated_xml_safe_str( const char * pstr )
+{
+  enum { XML_LEN = 4095, XML_SIZE = XML_LEN +1 };
+  
+  static char xmlstr[ XML_SIZE ];
+  size_t len    = CU_translated_strlen( pstr );
+  size_t maxlen = len < XML_SIZE ? len : XML_LEN;
+  
+  if( pstr == NULL ) {
+    strcpy( xmlstr, "(null)" );
+  } else {
+    CU_translate_special_characters( pstr, xmlstr, maxlen );
+  }
+  
+  return xmlstr;
+}
+
 /** @} */
