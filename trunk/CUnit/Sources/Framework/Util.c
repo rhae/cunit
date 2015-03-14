@@ -96,31 +96,31 @@ size_t CU_translate_special_characters(const char *szSrc, char *szDest, size_t m
 {
 /* old implementation
   size_t count = 0;
-	size_t src = 0;
-	size_t dest = 0;
-	size_t length = 0;
-	int conv_index;
+  size_t src = 0;
+  size_t dest = 0;
+  size_t length = 0;
+  int conv_index;
 
   assert(NULL != szSrc);
   assert(NULL != szDest);
 
-	length = strlen(szSrc);
-	memset(szDest, 0, maxlen);
-	while ((dest < maxlen) && (src < length)) {
+  length = strlen(szSrc);
+  memset(szDest, 0, maxlen);
+  while ((dest < maxlen) && (src < length)) {
 
-		if ((-1 != (conv_index = get_index(szSrc[src]))) &&
+    if ((-1 != (conv_index = get_index(szSrc[src]))) &&
         ((dest + strlen(CU_bindings[conv_index].replacement)) < maxlen)) {
-			strcat(szDest, CU_bindings[conv_index].replacement);
-			dest += strlen(CU_bindings[conv_index].replacement);
-			++count;
-		} else {
-			szDest[dest++] = szSrc[src];
-		}
+      strcat(szDest, CU_bindings[conv_index].replacement);
+      dest += strlen(CU_bindings[conv_index].replacement);
+      ++count;
+    } else {
+      szDest[dest++] = szSrc[src];
+    }
 
-		++src;
-	}
+    ++src;
+  }
 
-	return count;
+  return count;
 */
   size_t count = 0;
   size_t repl_len;
@@ -137,20 +137,20 @@ size_t CU_translate_special_characters(const char *szSrc, char *szDest, size_t m
       conv_index = get_index(*szSrc);
       if (-1 != conv_index) {
         if (maxlen > (repl_len = strlen(CU_bindings[conv_index].replacement))) {
-			    memcpy(szDest, CU_bindings[conv_index].replacement, repl_len);
-			    szDest += repl_len;
+          memcpy(szDest, CU_bindings[conv_index].replacement, repl_len);
+          szDest += repl_len;
           maxlen -= repl_len;
-			    ++count;
+          ++count;
         } else {
           maxlen = 0;   /* ran out of room - abort conversion */
           break;
         }
-		  } else {
-			  *szDest++ = *szSrc;
+      } else {
+        *szDest++ = *szSrc;
         --maxlen;
-		  }
-		  ++szSrc;
-	  }
+      }
+      ++szSrc;
+    }
 
     if (0 == maxlen) {
       *dest_start = '\0';   /* ran out of room - return empty string in szDest */
@@ -159,7 +159,7 @@ size_t CU_translate_special_characters(const char *szSrc, char *szDest, size_t m
       *szDest = '\0';       /* had room - make sure szDest has a terminating \0 */
     }
   }
-	return count;
+  return count;
 }
 
 /*------------------------------------------------------------------------*/
