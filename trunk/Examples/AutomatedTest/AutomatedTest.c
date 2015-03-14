@@ -30,6 +30,11 @@ int main(int argc, char* argv[])
   CU_BOOL Run = CU_FALSE ;
 
   setvbuf(stdout, NULL, _IONBF, 0);
+  
+#ifdef JUNIT_OUTPUT
+  CU_automated_enable_junit_xml( CU_TRUE );
+  CU_automated_package_name_set( "AutomatedTestExample" );
+#endif
 
   if (argc > 1) {
     if (!strcmp("-i", argv[1])) {
