@@ -743,7 +743,6 @@ void CU_automated_enable_junit_xml(CU_BOOL bFlag)
 {
   bJUnitXmlOutput = bFlag;
 }
-/** @} */
 
 /*------------------------------------------------------------------------*/
 /** Set tests suites package name
@@ -770,14 +769,16 @@ const char *CU_automated_package_name_get()
 /*------------------------------------------------------------------------*/
 /** Format pstr into an xml safe string.
  * 
- * Uses an internal static string for formatting pstr into an xml safe
- * string. The internal string is 4096 bytes big, including the \0 character.
- * If the internal static string is not large enough only the first 4095
- * characters are used.
+ * Uses 10 internal static string buffers for formatting pstr into an xml safe
+ * string. Each internal string buffer is 512 bytes big, including the \0
+ * character. If the internal static string is not large enough the string
+ * returned contains a \0 char at the beginning.
  * If pstr is a NULL pointer then the fixed string "(null)" is returned.
- * 
+ * Ten buffers are used to make sure that succesive calls in an fprintf can be.
+ *  
  * This function must be used if the string is used as PCDATA in an xml entity.
  * When the string is used as an attribute then it is not necessary to use it.
+ * 
  * 
  * @param pstr    String
  * @param len     Length of the string
@@ -786,11 +787,21 @@ const char *CU_automated_package_name_get()
  */
 static char * automated_xml_safe_str( const char * pstr )
 {
-  enum { XML_LEN = 4095, XML_SIZE = XML_LEN +1 };
+  enum { XML_LEN = 511, XML_SIZE = XML_LEN +1 };
+  enum { XML_BUF_CNT = 10 };
+  typedef char XmlBuf[XML_LEN];
   
-  static char xmlstr[ XML_SIZE ];
-  size_t len    = CU_translated_strlen( pstr );
-  size_t maxlen = len < XML_SIZE ? len : XML_LEN;
+  static size_t inst_cnt = 0;
+  static XmlBuf inst[XML_BUF_CNT];
+  size_t len    = CU_translated_strlen( pstr )+1;
+  size_t maxlen = len+1 < XML_SIZE ? len : XML_LEN;
+  char *xmlstr = &inst[ inst_cnt ];
+  
+  inst_cnt++;
+  if( inst_cnt == XML_BUF_CNT )
+  {
+    inst_cnt = 0;
+  }
   
   if( pstr == NULL ) {
     strcpy( xmlstr, "(null)" );
